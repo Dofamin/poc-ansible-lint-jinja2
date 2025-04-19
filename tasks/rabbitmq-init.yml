@@ -1,0 +1,30 @@
+# - name: RabbitMQ init | Cluster mode
+#   ansible.builtin.debug:
+#     msg: "RabbitMQ will be installed in {{ 'cluster' if rabbitmq_cluster == 'yes' else 'standalone' }} mode "
+#   run_once: true
+
+- name: RabbitMQ init | Create dir's
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  with_items:
+    - "{{ rabbitmq_host_root_path }}"
+    - "{{ rabbitmq_host_conf_path }}"
+    - "{{ rabbitmq_host_data_path }}"
+
+- name: RabbitMQ init | preload rabbitmq image
+  community.docker.docker_image:
+    name: "{{ rabbitmq_docker_image }}"
+    source: pull
+    state: present
+
+- name: RabbitMQ init | copy service config
+  ansible.builtin.template:
+    src: "templates/systemd/rabbitmq.service.j2"
+    dest: "/etc/systemd/system/{{ rabbitmq_conatiner_name }}.service"
+    mode: "0644"
+  notify: Restart RabbitMQ Service
+
+- name: RabbitMQ init | Force all notified handlers to run
+  ansible.builtin.meta: flush_handlers

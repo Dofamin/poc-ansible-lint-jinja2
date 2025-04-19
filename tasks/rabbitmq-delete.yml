@@ -1,0 +1,32 @@
+---
+- name: RabbitMQ delete | RabbitMQ disable service
+  ansible.builtin.systemd:
+    name: "{{ rabbitmq_conatiner_name }}"
+    enabled: false
+    state: stopped
+    daemon_reload: true
+
+- name: RabbitMQ delete | Delete docker image
+  community.docker.docker_image:
+    name: "{{ rabbitmq_docker_image }}"
+    state: absent
+  register: delete_result
+  failed_when:
+    - delete_result.failed is defined and delete_result.failed == true
+    - delete_result.msg is defined and "'not found'" not in delete_result.msg.lower()
+    - delete_result.msg is defined and "'no such image'" not in delete_result.msg.lower()
+
+- name: RabbitMQ delete | Delete services directories
+  ansible.builtin.file:
+    path: "{{ rabbitmq_host_root_path }}"
+    state: absent
+
+- name: RabbitMQ delete | Remove systemd file
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ rabbitmq_conatiner_name }}.service"
+    state: absent
+  register: service_result
+  failed_when:
+    - service_result.failed is defined and service_result.failed == true
+    - service_result.msg is defined and "'not-found'" in service_result.msg
+    - service_result.status is defined and "'inactive (dead)'" not in service_result.status

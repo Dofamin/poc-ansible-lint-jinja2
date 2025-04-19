@@ -1,0 +1,31 @@
+{{ ansible_managed | comment }}
+
+[Unit]
+Description={{ rabbitmq_conatiner_name }} container
+Requires=docker.service
+After=docker.service
+
+[Service]
+Restart=always
+ExecStartPre=-/usr/bin/docker rm {{ rabbitmq_conatiner_name }}
+ExecStart=/usr/bin/docker run --rm \
+{% if rabbitmq_docker_volumes is defined and rabbitmq_docker_volumes is not false %}
+{% for volume in rabbitmq_docker_volumes %}
+{% if volume |length > 0 %}
+  -v '{{ volume }}' \
+{% endif %}{% endfor %}{% endif %}
+  --hostname {{ ansible_hostname }} \
+  --name {{ rabbitmq_conatiner_name }} \
+{% if rabbitmq_docker_ports is defined and rabbitmq_docker_ports is not false %}
+{% for port in rabbitmq_docker_ports %}
+{% if port |length > 0 %}
+  --publish '{{ port }}' \
+{% endif %}{% endfor %}{% endif %}
+  {{ rabbitmq_docker_image }}
+ExecStop=/usr/bin/docker stop -t 10 {{ rabbitmq_conatiner_name }}
+ExecReload=/usr/bin/docker kill -s HUP {{ rabbitmq_conatiner_name }}
+
+[Install]
+WantedBy=multi-user.target
+
+{{ ansible_managed | comment }}

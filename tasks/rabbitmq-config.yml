@@ -1,0 +1,9 @@
+---
+- name: RabbitMQ configure | copy RabbitMQ config
+  ansible.builtin.template:
+    src: "{{ item }}"
+    dest: "{{ rabbitmq_host_conf_path }}/"
+    mode: "0644"
+  with_fileglob:
+    - templates/rabbitmq/*.conf
+  notify: Restart RabbitMQ Service

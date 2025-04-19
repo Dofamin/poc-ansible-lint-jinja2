@@ -1,0 +1,91 @@
+---
+# - name: RabbitMQ VHosts | Wait for RabbitMQ availability
+#   ansible.builtin.pause:
+#     seconds: 20
+
+- name: RabbitMQ VHosts | Get RabbitMQ VHosts
+  community.docker.docker_container_exec:
+    container: "{{ rabbitmq_conatiner_name }}"
+    command: rabbitmqctl list_vhosts --formatter=json
+  register: rabbitmq_vhosts_output
+  run_once: true
+  tags:
+    - rabbitmq-vhosts
+
+- name: RabbitMQ VHosts | Create RabbitMQ VHost
+  community.docker.docker_container_exec:
+    container: "{{ rabbitmq_conatiner_name }}"
+    command: >
+      rabbitmqctl add_vhost '{{ item.vhost }}'
+      --description '{{ item.description }}'
+      --default-queue-type '{{ item.queue_type }}'
+      --tags {% for tag in item.tags %}{{ tag }},{% endfor %}
+  when: rabbitmq_vhosts
+    and not item.delete
+    and item.vhost not in rabbitmq_vhosts_output.stdout | from_json | community.general.json_query('[*].name')
+  with_items: "{{ rabbitmq_vhosts }}"
+  run_once: true
+  tags:
+    - rabbitmq-vhosts
+
+- name: RabbitMQ VHosts | Get RabbitMQ VHosts
+  community.docker.docker_container_exec:
+    container: "{{ rabbitmq_conatiner_name }}"
+    command: rabbitmqctl list_vhosts --formatter=json
+  register: rabbitmq_vhosts_output
+  run_once: true
+  tags:
+    - rabbitmq-vhosts
+
+- name: RabbitMQ VHosts | Set protection from deletion
+  community.docker.docker_container_exec:
+    container: "{{ rabbitmq_conatiner_name }}"
+    command: >
+      rabbitmqctl enable_vhost_deletion_protection '{{ item.vhost }}'
+  when: rabbitmq_vhosts
+    and item.protection_from_deletion and not item.delete
+  with_items: "{{ rabbitmq_vhosts }}"
+  run_once: true
+  tags:
+    - rabbitmq-vhosts
+
+- name: RabbitMQ VHosts | Configuring Limits
+  community.docker.docker_container_exec:
+    container: "{{ rabbitmq_conatiner_name }}"
+    command: >
+      rabbitmqctl set_vhost_limits --vhost '{{ item.vhost }}' '{ {{- item.limits -}} }'
+  when: rabbitmq_vhosts
+    and item.limits
+    and not item.delete
+    and item.vhost in rabbitmq_vhosts_output.stdout | from_json | community.general.json_query('[*].name')
+  with_items: "{{ rabbitmq_vhosts }}"
+  run_once: true
+  tags:
+    - rabbitmq-vhosts
+
+- name: RabbitMQ VHosts | Remove protection from deletion
+  community.docker.docker_container_exec:
+    container: "{{ rabbitmq_conatiner_name }}"
+    command: >
+      rabbitmqctl disable_vhost_deletion_protection '{{ item.vhost }}'
+  when: rabbitmq_vhosts
+    and not item.protection_from_deletion
+    and not item.delete
+    and item.vhost in rabbitmq_vhosts_output.stdout | from_json | community.general.json_query('[*].name')
+  with_items: "{{ rabbitmq_vhosts }}"
+  run_once: true
+  tags:
+    - rabbitmq-vhosts
+
+- name: RabbitMQ VHosts | Delete RabbitMQ VHost
+  community.docker.docker_container_exec:
+    container: "{{ rabbitmq_conatiner_name }}"
+    command: rabbitmqctl delete_vhost '{{ item.vhost }}'
+  when: rabbitmq_vhosts
+    and not item.protection_from_deletion
+    and item.delete
+    and item.vhost in rabbitmq_vhosts_output.stdout | from_json | community.general.json_query('[*].name')
+  with_items: "{{ rabbitmq_vhosts }}"
+  run_once: true
+  tags:
+    - rabbitmq-vhosts

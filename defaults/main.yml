@@ -1,0 +1,70 @@
+---
+delete_all: false
+
+rabbitmq_conatiner_name: "rabbitmq"
+rabbitmq_version: "4.1.0-rc.2-management-alpine"
+
+rabbitmq_service_enabled: true
+
+rabbitmq_docker_image: "docker.io/rabbitmq:{{ rabbitmq_version }}"
+
+# rabbitmq_server_list: "{{ ansible_play_batch | map('extract', hostvars) | map(attribute='ansible_hostname') }}"
+# rabbitmq_cluster: "{{ (rabbitmq_server_list | length >= 3) | ternary('yes', 'no') }}"
+
+rabbitmq_host_root_path: /srv/{{ rabbitmq_conatiner_name }}
+rabbitmq_host_conf_path: "{{ rabbitmq_host_root_path }}/config"
+rabbitmq_host_data_path: "{{ rabbitmq_host_root_path }}/data"
+
+rabbitmq_docker_conf_path: "/etc/rabbitmq/conf.d/"
+rabbitmq_docker_data_path: "/var/lib/rabbitmq/"
+
+rabbitmq_docker_volumes:
+  - "{{ rabbitmq_host_conf_path }}:{{ rabbitmq_docker_conf_path }}:ro"
+  - "{{ rabbitmq_host_data_path }}:{{ rabbitmq_docker_data_path }}"
+
+# https://www.rabbitmq.com/docs/networking
+rabbitmq_docker_ports:
+  - "4369:4369"
+  - "5671-5672:5671-5672"
+  - "5551-5552:5551-5552"
+  - "6000-6500:6000-6500"
+  - "35672-35682:35672-35682"
+  - "61613-61614:61613-61614"
+  - "1883:1883"
+  - "8883:8883"
+  - "15671-15672:15671-15672"
+  - "15674:15674"
+  - "15675:15675"
+  - "15691-15692:15691-15692"
+
+# https://www.rabbitmq.com/docs/access-control#grant-permissions
+# https://www.rabbitmq.com/docs/management#permissions
+rabbitmq_users:
+  - username: admin
+    password: admin
+    delete: false
+    vhosts:
+      - /
+    role: administrator
+    # limits: '"max-connections": 10, "max-channels": -1'
+    limits: false
+    permissions:
+      - configure: .*
+      - write: .*
+      - read: .*
+    all_vhosts: false
+
+# https://www.rabbitmq.com/docs/vhosts#default-queue-type
+rabbitmq_vhosts:
+  - vhost: test
+    description: test
+    queue_type: classic
+    protection_from_deletion: false
+    # limits: '"max-connections": 256, "max-queues": 1024'
+    limits: false
+    tags:
+      - test
+    delete: false
+
+rabbitmq_log_level: info
+rabbitmq_config: |

@@ -1,0 +1,117 @@
+---
+- name: RabbitMQ ACL | Get RabbitMQ users
+  community.docker.docker_container_exec:
+    container: "{{ rabbitmq_conatiner_name }}"
+    command: rabbitmqctl list_users --formatter=json
+  register: rabbitmq_users_output
+  run_once: true
+  tags:
+    - rabbitmq-acl
+
+- name: RabbitMQ ACL | Delete RabbitMQ user
+  community.docker.docker_container_exec:
+    container: "{{ rabbitmq_conatiner_name }}"
+    command: rabbitmqctl delete_user '{{ item.username }}'
+  when: rabbitmq_users
+    and item.delete
+    and item.username in rabbitmq_users_output.stdout | from_json | community.general.json_query('[*].user')
+  with_items: "{{ rabbitmq_users }}"
+  run_once: true
+  tags:
+    - rabbitmq-users
+
+- name: RabbitMQ ACL | Create RabbitMQ user
+  community.docker.docker_container_exec:
+    container: "{{ rabbitmq_conatiner_name }}"
+    command: rabbitmqctl add_user '{{ item.username }}' '{{ item.password }}'
+  when: rabbitmq_users
+    and not item.delete
+    and item.username not in rabbitmq_users_output.stdout | from_json | community.general.json_query('[*].user')
+  with_items: "{{ rabbitmq_users }}"
+  run_once: true
+  tags:
+    - rabbitmq-users
+
+- name: RabbitMQ ACL | Update user password
+  community.docker.docker_container_exec:
+    container: "{{ rabbitmq_conatiner_name }}"
+    command: rabbitmqctl change_password '{{ item.username }}' '{{ item.password }}'
+  when: rabbitmq_users
+    and not item.delete
+    and item.username in rabbitmq_users_output.stdout | from_json | community.general.json_query('[*].user')
+  with_items: "{{ rabbitmq_users }}"
+  run_once: true
+  tags:
+    - rabbitmq-users
+
+- name: RabbitMQ ACL | Set user permissions
+  community.docker.docker_container_exec:
+    container: "{{ rabbitmq_conatiner_name }}"
+    command: >
+      {% if item.all_vhosts %}
+      /bin/bash -c 'for v in $(rabbitmqctl list_vhosts --silent); do rabbitmqctl set_permissions -p $v
+      "{{ item.username }}" {% for acl in item.permissions %} "{{ acl }}" {% endfor %}; done
+      '{% endif %}
+      {% if not item.all_vhosts %}
+      rabbitmqctl set_permissions -p
+      {% for vhost in item.vhosts %}
+      "{{ vhost }}"
+      {% endfor %}
+      "{{ item.username }}"
+      {% for acl in item.permissions %}
+      "{{ acl }}"
+      {% endfor %}
+      {% endif %}
+  when: rabbitmq_users
+    and not item.delete
+    and item.username in rabbitmq_users_output.stdout | from_json | community.general.json_query('[*].user')
+  with_items: "{{ rabbitmq_users }}"
+  run_once: true
+  tags:
+    - rabbitmq-users
+
+- name: RabbitMQ ACL | Set user limits
+  community.docker.docker_container_exec:
+    container: "{{ rabbitmq_conatiner_name }}"
+    command: >
+      rabbitmqctl set_user_limits
+      "{{ item.username }}"
+      '{ {{- item.limits -}} }'
+  when: rabbitmq_users
+    and item.limits
+    and not item.delete
+    and item.username in rabbitmq_users_output.stdout | from_json | community.general.json_query('[*].user')
+  with_items: "{{ rabbitmq_users }}"
+  run_once: true
+  tags:
+    - rabbitmq-users
+
+- name: RabbitMQ ACL | Remove user limits
+  community.docker.docker_container_exec:
+    container: "{{ rabbitmq_conatiner_name }}"
+    command: >
+      rabbitmqctl clear_user_limits
+      {{ item.username }} all
+  when: rabbitmq_users and
+    not item.limits
+    and not item.delete
+    and item.username in rabbitmq_users_output.stdout | from_json | community.general.json_query('[*].user')
+  with_items: "{{ rabbitmq_users }}"
+  run_once: true
+  tags:
+    - rabbitmq-users
+
+- name: RabbitMQ ACL | Set user role
+  community.docker.docker_container_exec:
+    container: "{{ rabbitmq_conatiner_name }}"
+    command: >
+      rabbitmqctl set_user_tags
+      "{{ item.username }}"
+      "{{ item.role }}"
+  when: rabbitmq_users
+    and not item.delete
+    and item.username in rabbitmq_users_output.stdout | from_json | community.general.json_query('[*].user')
+  with_items: "{{ rabbitmq_users }}"
+  run_once: true
+  tags:
+    - rabbitmq-users

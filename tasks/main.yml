@@ -1,0 +1,20 @@
+---
+- name: RabbitMQ init
+  ansible.builtin.include_tasks: rabbitmq-init.yml
+  when: not delete_all
+
+- name: RabbitMQ cofigure
+  ansible.builtin.include_tasks: rabbitmq-config.yml
+  when: not delete_all
+
+- name: RabbitMQ VHosts
+  ansible.builtin.include_tasks: rabbitmq-vhosts.yml
+  when: not delete_all
+
+- name: RabbitMQ ACL Users
+  ansible.builtin.include_tasks: rabbitmq-acl.yml
+  when: not delete_all
+
+- name: RabbitMQ uninstall
+  ansible.builtin.include_tasks: rabbitmq-delete.yml
+  when: delete_all
